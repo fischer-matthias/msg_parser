@@ -19,3 +19,15 @@ History
 * Updates to Makefile
 * Formatting and linting
 
+1.3.0 (2026-06-25)
+------------------
+* New feature: convert a ``.msg`` file or a whole folder of ``.msg`` files to
+  Markdown with the mail headers rendered as YAML frontmatter
+  (``MsOxMessage.get_message_as_markdown``, ``MsOxMessage.save_markdown_file``,
+  ``convert_to_markdown`` and the ``--markdown`` CLI option).
+* Optional ``html`` extra for high quality HTML-to-Markdown body conversion via
+  ``markdownify`` (with a dependency-free fallback).
+* Modernised supported Python versions (3.9 - 3.13) and refreshed dependencies.
+* Switched CI to a GitHub Actions matrix and added a ``pyproject.toml`` build
+  configuration.
+

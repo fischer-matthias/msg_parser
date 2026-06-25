@@ -374,6 +374,38 @@ class MsOxMessage(object):
         email_obj = EmailFormatter(self)
         return email_obj.build_email()
 
+    def get_message_as_markdown(self):
+        """Return the message rendered as Markdown with YAML frontmatter."""
+        from .markdown_converter import MarkdownConverter
+
+        return MarkdownConverter(self).to_markdown()
+
+    def save_markdown_file(self, output=None):
+        """Write the message as a Markdown file with YAML frontmatter.
+
+        :param output: target ``.md`` file path or an output directory. When
+            ``None`` the file is written next to the source ``.msg`` file.
+        :return: the path of the written Markdown file.
+        """
+        import os as _os
+
+        from .markdown_converter import MarkdownConverter, _markdown_output_path
+
+        source = self.msg_file_path
+        if not isinstance(source, str):
+            source = getattr(source, "name", "message.msg")
+
+        markdown = MarkdownConverter(self).to_markdown()
+        destination = _markdown_output_path(source, output)
+
+        parent = _os.path.dirname(_os.path.abspath(destination))
+        if parent and not _os.path.isdir(parent):
+            _os.makedirs(parent, exist_ok=True)
+
+        with open(destination, "w", encoding="utf-8") as md_file:
+            md_file.write(markdown)
+        return destination
+
     def save_email_file(self, file_path, file_name=None):
         email_obj = EmailFormatter(self)
         email_obj.save_file(file_path, file_name)
