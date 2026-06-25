@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """Tests for the msg-to-Markdown conversion feature."""
+
+import contextlib
+import io
 import os
 import shutil
 import tempfile
@@ -9,11 +12,13 @@ import unittest
 
 import yaml
 
-from msg_parser import MarkdownConverter
-from msg_parser import MsOxMessage
-from msg_parser import convert_directory
-from msg_parser import convert_msg_to_markdown
-from msg_parser import convert_to_markdown
+from msg_parser import (
+    MarkdownConverter,
+    MsOxMessage,
+    convert_directory,
+    convert_msg_to_markdown,
+    convert_to_markdown,
+)
 from msg_parser.cli import create_parser
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -121,6 +126,36 @@ class MarkdownConversionTests(unittest.TestCase):
         parsed = create_parser(["-i", TEST_COMPLETE_MSG, "-m", "-o", self.tmp_dir])
         self.assertTrue(parsed.markdown)
         self.assertFalse(parsed.recursive)
+
+
+class DirectoryConversionResilienceTests(unittest.TestCase):
+    """A single unreadable ``.msg`` must not abort a whole-directory run."""
+
+    def setUp(self):
+        self.src_dir = tempfile.mkdtemp()
+        self.dst_dir = tempfile.mkdtemp()
+        # A valid message and a deliberately corrupt one. "bad.msg" sorts
+        # before "good.msg", so it is processed first.
+        shutil.copy(TEST_COMPLETE_MSG, os.path.join(self.src_dir, "good.msg"))
+        with open(os.path.join(self.src_dir, "bad.msg"), "wb") as handle:
+            handle.write(b"this is not a valid OLE/MSG file")
+
+    def tearDown(self):
+        shutil.rmtree(self.src_dir, ignore_errors=True)
+        shutil.rmtree(self.dst_dir, ignore_errors=True)
+
+    def test_bad_file_does_not_abort_batch(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            written = convert_directory(self.src_dir, self.dst_dir)
+        self.assertEqual(len(written), 1)
+        self.assertTrue(written[0].endswith("good.md"))
+        self.assertTrue(os.path.isfile(written[0]))
+
+    def test_failure_is_reported_to_stderr(self):
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            convert_directory(self.src_dir, self.dst_dir)
+        self.assertIn("bad.msg", stderr.getvalue())
 
 
 if __name__ == "__main__":

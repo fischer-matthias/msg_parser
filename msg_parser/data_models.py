@@ -1,6 +1,5 @@
 # coding=utf-8
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from struct import unpack
 
 from .properties import DATA_TYPE_MAP
@@ -25,7 +24,7 @@ class DataModel(object):
                 "required arguments not provided to the constructor of the class."
             )
 
-        if not hasattr(self, self.data_type_name):
+        if not self.data_type_name or not hasattr(self, self.data_type_name):
             return None
 
         value = getattr(self, self.data_type_name)(data_value)
@@ -41,11 +40,11 @@ class DataModel(object):
 
     @staticmethod
     def PtypInteger16(data_value):
-        return int(data_value.encode("hex"), 16)
+        return unpack("h", data_value)[0]
 
     @staticmethod
     def PtypInteger32(data_value):
-        return int(data_value.encode("hex"), 32)
+        return unpack("i", data_value)[0]
 
     @staticmethod
     def PtypFloating32(data_value):
@@ -69,7 +68,7 @@ class DataModel(object):
 
     @staticmethod
     def PtypBoolean(data_value):
-        return unpack("B", data_value[0])[0] != 0
+        return unpack("B", data_value[:1])[0] != 0
 
     @staticmethod
     def PtypObject(data_value):
@@ -124,22 +123,30 @@ class DataModel(object):
     @staticmethod
     def PtypMultipleInteger16(data_value):
         entry_count = int(len(data_value) / 2)
-        return [unpack("h", bytes[i * 2 : (i + 1) * 2])[0] for i in range(entry_count)]
+        return [
+            unpack("h", data_value[i * 2 : (i + 1) * 2])[0] for i in range(entry_count)
+        ]
 
     @staticmethod
     def PtypMultipleInteger32(data_value):
         entry_count = int(len(data_value) / 4)
-        return [unpack("i", bytes[i * 4 : (i + 1) * 4])[0] for i in range(entry_count)]
+        return [
+            unpack("i", data_value[i * 4 : (i + 1) * 4])[0] for i in range(entry_count)
+        ]
 
     @staticmethod
     def PtypMultipleFloating32(data_value):
         entry_count = int(len(data_value) / 4)
-        return [unpack("f", bytes[i * 4 : (i + 1) * 4])[0] for i in range(entry_count)]
+        return [
+            unpack("f", data_value[i * 4 : (i + 1) * 4])[0] for i in range(entry_count)
+        ]
 
     @staticmethod
     def PtypMultipleFloating64(data_value):
         entry_count = int(len(data_value) / 8)
-        return [unpack("d", bytes[i * 8 : (i + 1) * 8])[0] for i in range(entry_count)]
+        return [
+            unpack("d", data_value[i * 8 : (i + 1) * 8])[0] for i in range(entry_count)
+        ]
 
     @staticmethod
     def PtypMultipleCurrency(data_value):
@@ -149,13 +156,16 @@ class DataModel(object):
     def PtypMultipleFloatingTime(data_value):
         entry_count = int(len(data_value) / 8)
         return [
-            get_floating_time(bytes[i * 8 : (i + 1) * 8]) for i in range(entry_count)
+            get_floating_time(data_value[i * 8 : (i + 1) * 8])
+            for i in range(entry_count)
         ]
 
     @staticmethod
     def PtypMultipleInteger64(data_value):
         entry_count = int(len(data_value) / 8)
-        return [unpack("q", bytes[i * 8 : (i + 1) * 8])[0] for i in range(entry_count)]
+        return [
+            unpack("q", data_value[i * 8 : (i + 1) * 8])[0] for i in range(entry_count)
+        ]
 
     @staticmethod
     def PtypMultipleString(data_value):
@@ -174,12 +184,12 @@ class DataModel(object):
     @staticmethod
     def PtypMultipleTime(data_value):
         entry_count = int(len(data_value) / 8)
-        return [get_time(bytes[i * 8 : (i + 1) * 8]) for i in range(entry_count)]
+        return [get_time(data_value[i * 8 : (i + 1) * 8]) for i in range(entry_count)]
 
     @staticmethod
     def PtypMultipleGuid(data_value):
         entry_count = int(len(data_value) / 16)
-        return [bytes[i * 16 : (i + 1) * 16] for i in range(entry_count)]
+        return [data_value[i * 16 : (i + 1) * 16] for i in range(entry_count)]
 
     @staticmethod
     def PtypMultipleBinary(data_value):
@@ -205,7 +215,8 @@ def get_multi_value_offsets(data_value):
         rgul_data_offsets = [8]
     else:
         rgul_data_offsets = [
-            unpack("Q", bytes[4 + i * 8 : 4 + (i + 1) * 8])[0] for i in range(ul_count)
+            unpack("Q", data_value[4 + i * 8 : 4 + (i + 1) * 8])[0]
+            for i in range(ul_count)
         ]
 
     rgul_data_offsets.append(len(data_value))

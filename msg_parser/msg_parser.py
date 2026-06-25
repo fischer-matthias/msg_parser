@@ -9,8 +9,7 @@ import re
 from pickle import dumps
 from struct import unpack
 
-from olefile import OleFileIO
-from olefile import isOleFile
+from olefile import OleFileIO, isOleFile
 
 from .data_models import DataModel
 from .email_builder import EmailFormatter
@@ -25,7 +24,7 @@ CONTROL_CHARS = re.compile(r"[\n\r\t]")
 
 class Message(object):
     """
-     Class to store Message properties
+    Class to store Message properties
     """
 
     def __init__(self, directory_entries):
@@ -224,7 +223,7 @@ class Message(object):
 
         if property_value:
             # If the propery is the data of the attachment it has to be provided raw to preven corruption
-            if property_name == 'AttachDataObject':
+            if property_name == "AttachDataObject":
                 property_detail = {property_name: raw_content}
             # Otherwhisle use the olefile lib to get the value
             else:
@@ -243,6 +242,14 @@ class Message(object):
             name = dir_entry_name.replace("__substg1.0_", "")
             prop_name_id = "0x" + name[0:4]
             prop_details = PROPS_ID_MAP.get(prop_name_id)
+            if prop_details and len(name) >= 8:
+                # The MAPI property type is authoritatively encoded in the
+                # stream name itself: __substg1.0_<4-hex id><4-hex type>.  The
+                # static ID map is unreliable for named (>= 0x8000) properties,
+                # so prefer the type embedded in the name.  Copy first so the
+                # shared PROPS_ID_MAP is never mutated.
+                prop_details = dict(prop_details)
+                prop_details["data_type"] = "0x" + name[4:8].upper()
             return prop_details
 
         return None
@@ -255,7 +262,7 @@ class Message(object):
 
 class Recipient(object):
     """
-     class to store recipient attributes
+    class to store recipient attributes
     """
 
     def __init__(self, recipients_properties):
@@ -272,7 +279,7 @@ class Recipient(object):
 
 class Attachment(object):
     """
-     class to store attachment attributes
+    class to store attachment attributes
     """
 
     def __init__(self, attachment_properties):
@@ -308,7 +315,7 @@ class Attachment(object):
 
 class MsOxMessage(object):
     """
-     Base class for Microsoft Message Object
+    Base class for Microsoft Message Object
     """
 
     def __init__(self, msg_file_path):
@@ -533,9 +540,7 @@ def parse_email_headers(header, raw=False):
     }
 
     for addr in email_address_headers.keys():
-        for (name, email_address) in email.utils.getaddresses(
-            headers.get_all(addr, [])
-        ):
+        for name, email_address in email.utils.getaddresses(headers.get_all(addr, [])):
             email_address_headers[addr].append("{} <{}>".format(name, email_address))
 
     parsed_headers = dict(headers)

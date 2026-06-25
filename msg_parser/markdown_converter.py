@@ -9,9 +9,11 @@ becomes the Markdown content of the document.
 This module can convert a single ``.msg`` file or a whole directory of
 ``.msg`` files in one go.
 """
+
 import html as html_module
 import os
 import re
+import sys
 from datetime import datetime
 
 import yaml
@@ -105,19 +107,27 @@ class MarkdownConverter(object):
         if subject:
             frontmatter["subject"] = str(subject)
 
-        sender = self._address_list(self._header("From") or getattr(self.msg, "sender", None))
+        sender = self._address_list(
+            self._header("From") or getattr(self.msg, "sender", None)
+        )
         if sender:
             frontmatter["from"] = sender[0] if len(sender) == 1 else sender
 
-        to = self._address_list(self._header("To", "TO") or getattr(self.msg, "to", None))
+        to = self._address_list(
+            self._header("To", "TO") or getattr(self.msg, "to", None)
+        )
         if to:
             frontmatter["to"] = to
 
-        cc = self._address_list(self._header("CC", "Cc") or getattr(self.msg, "cc", None))
+        cc = self._address_list(
+            self._header("CC", "Cc") or getattr(self.msg, "cc", None)
+        )
         if cc:
             frontmatter["cc"] = cc
 
-        bcc = self._address_list(self._header("BCC", "Bcc") or getattr(self.msg, "bcc", None))
+        bcc = self._address_list(
+            self._header("BCC", "Bcc") or getattr(self.msg, "bcc", None)
+        )
         if bcc:
             frontmatter["bcc"] = bcc
 
@@ -147,7 +157,9 @@ class MarkdownConverter(object):
 
     def _raw_body(self):
         """Return ``(content, is_html)`` preferring the plain-text body."""
-        properties = getattr(getattr(self.msg, "_message", None), "properties", {}) or {}
+        properties = (
+            getattr(getattr(self.msg, "_message", None), "properties", {}) or {}
+        )
 
         plain = properties.get("Body")
         if isinstance(plain, bytes):
@@ -283,8 +295,26 @@ def convert_directory(input_dir, output_dir=None, recursive=False):
         os.makedirs(output_dir, exist_ok=True)
 
     written = []
+    failures = []
     for msg_path in _iter_msg_files(input_dir, recursive=recursive):
-        written.append(save_markdown_file(msg_path, output_dir))
+        try:
+            written.append(save_markdown_file(msg_path, output_dir))
+        except Exception as error:  # noqa: BLE001
+            # A single unreadable/corrupt .msg must not abort the whole batch.
+            # Record it, report it, and keep converting the rest.
+            failures.append((msg_path, error))
+            print(
+                "Failed to convert {0}: {1}".format(msg_path, error),
+                file=sys.stderr,
+            )
+
+    if failures:
+        print(
+            "{0} of {1} file(s) could not be converted.".format(
+                len(failures), len(written) + len(failures)
+            ),
+            file=sys.stderr,
+        )
     return written
 
 
